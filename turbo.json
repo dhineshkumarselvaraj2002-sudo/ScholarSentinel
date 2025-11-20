@@ -1,0 +1,44 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": [
+        "DATABASE_URL",
+        "NEXT_PUBLIC_APP_URL",
+        "PDF_SERVICE_URL"
+      ]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "compile": {
+      "dependsOn": ["^compile"],
+      "outputs": [],
+      "cache": true
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "db:generate": {
+      "cache": false,
+      "outputs": ["node_modules/.prisma/**"]
+    },
+    "db:push": {
+      "dependsOn": ["db:generate"],
+      "cache": false
+    },
+    "db:migrate": {
+      "dependsOn": ["db:generate"],
+      "cache": false
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
+

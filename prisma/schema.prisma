@@ -1,0 +1,229 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enable pg_trgm extension for fuzzy matching
+// Run: CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("user") // user, admin
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  alerts Alert[]
+}
+
+model Author {
+  id        String   @id @default(cuid())
+  name      String
+  orcid     String?
+  affiliation String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paperAuthors PaperAuthor[]
+}
+
+model Paper {
+  id                String   @id @default(cuid())
+  title             String
+  abstract          String?  @db.Text
+  doi               String?  @unique
+  url               String?
+  pdfUrl            String?
+  pdfPath           String?  // Local path to PDF
+  year              Int?
+  venue             String?  // Journal or conference name
+  volume            String?
+  pages             String?
+  citationCount     Int      @default(0)
+  topics            String[] // Array of topics/keywords
+  status            PaperStatus @default(PENDING)
+  source            String?  // openalex, crossref, semantic, rss
+  sourceId          String?  // ID from source API
+  metadata          Json?    // Raw metadata from source
+  validationNotes   String?  @db.Text
+  needsReview       Boolean  @default(false)
+  reviewReason      String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  validatedAt       DateTime?
+
+  authors      PaperAuthor[]
+  references   Reference[]
+  diagrams     Diagram[]
+  similarities SimilarityReport[]
+  alerts       Alert[]
+
+  @@index([status])
+  @@index([doi])
+  @@index([year])
+  @@index([venue])
+  @@index([createdAt])
+  @@index([title])
+  @@index([abstract])
+}
+
+model PaperAuthor {
+  id        String   @id @default(cuid())
+  paperId   String
+  authorId  String
+  order     Int      @default(0)
+  isCorresponding Boolean @default(false)
+
+  paper  Paper  @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  author Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([paperId, authorId])
+  @@index([paperId])
+  @@index([authorId])
+}
+
+enum PaperStatus {
+  PENDING
+  VALIDATED
+  REJECTED
+  NEEDS_REVIEW
+}
+
+model Reference {
+  id              String            @id @default(cuid())
+  paperId         String
+  order           Int
+  rawText         String            @db.Text
+  normalizedTitle String?
+  normalizedAuthors String?
+  normalizedYear  Int?
+  normalizedDoi   String?
+  normalizedVenue String?
+  status          ReferenceStatus   @default(PENDING)
+  verificationData Json?            // API response from CrossRef/OpenAlex
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@unique([paperId, order])
+  @@index([paperId])
+  @@index([status])
+  @@index([normalizedDoi])
+}
+
+enum ReferenceStatus {
+  PENDING
+  VALID
+  INVALID
+  MISSING
+}
+
+model Diagram {
+  id              String   @id @default(cuid())
+  paperId         String
+  order           Int
+  pageNumber      Int
+  imagePath       String   // Path to extracted image
+  perceptualHash String?  // pHash value
+  width           Int?
+  height          Int?
+  caption         String?  @db.Text
+  isSuspicious    Boolean  @default(false)
+  similarityScore Float?   // Similarity to other diagrams (0-1)
+  matchedDiagramId String? // ID of similar diagram found
+  reverseSearchData Json?  // Results from reverse image search
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([paperId])
+  @@index([isSuspicious])
+  @@index([perceptualHash])
+}
+
+model SimilarityReport {
+  id                String   @id @default(cuid())
+  paperId           String
+  comparedPaperId   String?  // If comparing with another paper
+  similarityType    String   // title, abstract, content, full
+  similarityScore   Float    // 0-1
+  matchedSections   Json?    // Details of matched sections
+  levenshteinDistance Int?
+  trigramSimilarity Float?
+  createdAt         DateTime @default(now())
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([paperId])
+  @@index([similarityScore])
+  @@index([similarityType])
+}
+
+model Alert {
+  id          String      @id @default(cuid())
+  type        AlertType
+  severity    AlertSeverity @default(INFO)
+  title       String
+  message     String      @db.Text
+  paperId     String?
+  referenceId String?
+  diagramId   String?
+  userId      String?     // If alert is user-specific
+  isRead      Boolean     @default(false)
+  metadata    Json?       // Additional alert data
+  createdAt   DateTime    @default(now())
+
+  paper      Paper?  @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  user       User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([severity])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+enum AlertType {
+  PAPER_VALIDATED
+  PAPER_REJECTED
+  INVALID_REFERENCE
+  SUSPICIOUS_DIAGRAM
+  DUPLICATE_DETECTED
+  VALIDATION_ERROR
+  DAILY_SUMMARY
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+model Setting {
+  id        String   @id @default("settings") // Single row for global settings
+  geminiApiKey String? // Encrypted or plain (depending on security requirements)
+  openAlexApiKey String?
+  crossrefApiKey String?
+  pdfServiceUrl String? @default("http://localhost:8000")
+  sendGridApiKey String? // SendGrid API key for email alerts
+  slackWebhookUrl String? // Slack webhook URL for alerts
+  discordWebhookUrl String? // Discord webhook URL for alerts
+  bingVisualSearchApiKey String? // Azure Computer Vision API key for reverse image search
+  bingVisualSearchEndpoint String? // Azure Computer Vision endpoint URL
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+

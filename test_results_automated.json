@@ -1,0 +1,208 @@
+{
+  "timestamp": 1763545141.7994459,
+  "tests": [
+    {
+      "name": "File: scripts/pdf_extractor.py",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8004506
+    },
+    {
+      "name": "File: scripts/image_hashing.py",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8004506
+    },
+    {
+      "name": "File: scripts/opencv_compare.py",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: scripts/auto_reverse_search.py",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: scripts/plagiarism_engine.py",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: queue/diagramQueue.ts",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: workers/diagramWorker.ts",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: app/forensics/page.tsx",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: app/api/extract/route.ts",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: app/api/hashing/route.ts",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: app/api/compare/route.ts",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8014588
+    },
+    {
+      "name": "File: app/api/reverse/route.ts",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8025124
+    },
+    {
+      "name": "File: app/api/forensics/scan/route.ts",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8025124
+    },
+    {
+      "name": "Directory: public/diagrams",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8029492
+    },
+    {
+      "name": "Directory: data",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.8029492
+    },
+    {
+      "name": "Directory: uploads",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545141.803356
+    },
+    {
+      "name": "Required: PyMuPDF",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545142.3577938
+    },
+    {
+      "name": "Required: Pillow",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545142.3577938
+    },
+    {
+      "name": "Required: imagehash",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545142.462406
+    },
+    {
+      "name": "Optional: opencv-python",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545142.506542
+    },
+    {
+      "name": "Optional: scikit-image",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545142.511405
+    },
+    {
+      "name": "Optional: selenium",
+      "status": "PASS",
+      "details": "",
+      "error": "",
+      "timestamp": 1763545142.512429
+    },
+    {
+      "name": "Database",
+      "status": "PASS",
+      "details": "Table exists with 43 records, all required columns present",
+      "error": "",
+      "timestamp": 1763545143.01371
+    },
+    {
+      "name": "PDF Extraction",
+      "status": "PASS",
+      "details": "Extracted 23 diagrams, 23 files verified",
+      "error": "",
+      "timestamp": 1763545146.2505105
+    },
+    {
+      "name": "Image Hashing",
+      "status": "PASS",
+      "details": "Computed all 3 hash types, stored=True, similarity=1.00, found 10 similar",
+      "error": "",
+      "timestamp": 1763545147.0584857
+    },
+    {
+      "name": "OpenCV Comparison",
+      "status": "PASS",
+      "details": "ORB=0.000, SSIM=0.032, Match=1.9%",
+      "error": "",
+      "timestamp": 1763545147.820585
+    },
+    {
+      "name": "Selenium Reverse Search",
+      "status": "PASS",
+      "details": "Selenium available and ReverseImageSearcher initialized",
+      "error": "",
+      "timestamp": 1763545148.9604359
+    },
+    {
+      "name": "Plagiarism Engine",
+      "status": "PASS",
+      "details": "Analyzed 23 diagrams, risk=medium",
+      "error": "",
+      "timestamp": 1763545406.272787
+    }
+  ],
+  "summary": {
+    "total": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "pass_rate": "100.0%"
+  }
+}
