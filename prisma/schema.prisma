@@ -10,8 +10,8 @@ datasource db {
   url       = env("DATABASE_URL")
   // For Neon, use pooled connection string for better performance
   // Connection pooling is handled by Neon automatically
-  // Use DIRECT_URL or DATABASE_URL_UNPOOLED for migrations
-  directUrl = env("DIRECT_URL") // Optional: for migrations, use unpooled connection
+  // Use DIRECT_URL or DATABASE_URL_UNPOOLED for migrations (optional)
+  // directUrl = env("DIRECT_URL") // Uncomment if you need separate connection for migrations
 }
 
 // Enable pg_trgm extension for fuzzy matching
