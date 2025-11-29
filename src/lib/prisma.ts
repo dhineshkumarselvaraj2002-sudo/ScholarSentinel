@@ -21,7 +21,12 @@ if (process.env.NODE_ENV !== 'production') {
 
 // In serverless environments (Vercel), connections are managed automatically
 // No need to explicitly connect/disconnect
-if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'production') {
+// Skip connection during build phase
+if (
+  process.env.NODE_ENV !== 'test' && 
+  process.env.NODE_ENV !== 'production' &&
+  process.env.NEXT_PHASE !== 'phase-production-build'
+) {
   prisma.$connect().catch((error) => {
     console.error('Failed to connect to database:', error)
   })
