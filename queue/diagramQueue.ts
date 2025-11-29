@@ -1,92 +1,9 @@
 /**
  * Diagram Forensics Queue
- * Uses BullMQ with Redis for background job processing
+ * Simplified version without Redis - jobs execute directly
  */
 
-import { Queue, QueueOptions, Job } from 'bullmq'
-import Redis from 'ioredis'
-
-// Redis connection with error handling
-let connection: Redis | null = null
-let redisAvailable = false
-
-try {
-  connection = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    maxRetriesPerRequest: null,
-    retryStrategy: (times) => {
-      // Stop retrying after 3 attempts
-      if (times > 3) {
-        console.warn('Redis connection failed after 3 attempts. Running in fallback mode (no queue).')
-        redisAvailable = false
-        return null
-      }
-      return Math.min(times * 200, 2000)
-    },
-    lazyConnect: true, // Don't connect immediately
-  })
-
-  // Handle connection events
-  connection.on('connect', () => {
-    console.log('✅ Redis connected successfully')
-    redisAvailable = true
-  })
-
-  connection.on('error', (err) => {
-    console.warn('⚠️ Redis connection error:', err.message)
-    redisAvailable = false
-  })
-
-  connection.on('close', () => {
-    console.warn('⚠️ Redis connection closed')
-    redisAvailable = false
-  })
-
-  // Try to connect
-  connection.connect().catch((err) => {
-    console.warn('⚠️ Redis not available. Running in fallback mode (direct execution).')
-    console.warn('   To use background jobs, start Redis: redis-server')
-    redisAvailable = false
-  })
-} catch (error: any) {
-  console.warn('⚠️ Redis initialization failed:', error.message)
-  console.warn('   Running in fallback mode (direct execution)')
-  redisAvailable = false
-}
-
-// Queue options
-const queueOptions: QueueOptions | null = connection
-  ? {
-      connection,
-      defaultJobOptions: {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
-        removeOnComplete: {
-          age: 3600, // Keep completed jobs for 1 hour
-          count: 100, // Keep last 100 jobs
-        },
-        removeOnFail: {
-          age: 86400, // Keep failed jobs for 24 hours
-        },
-      },
-    }
-  : null
-
-// Create queue instance (only if Redis is available)
-export const diagramQueue = connection && queueOptions
-  ? new Queue('diagram-forensics', queueOptions)
-  : null
-
-// Export Redis availability status
-export const isRedisAvailable = () => redisAvailable
-
-/**
- * Job data types
- */
+// Job data types
 export interface ExtractJobData {
   type: 'extract'
   pdfPath: string
@@ -126,58 +43,74 @@ export type DiagramJobData =
   | ReverseSearchJobData
   | PlagiarismJobData
 
+// In-memory job status store (for direct execution mode)
+const jobStatusStore = new Map<string, {
+  id: string
+  name: string
+  state: 'waiting' | 'active' | 'completed' | 'failed'
+  progress: number
+  data: any
+  returnValue?: any
+  failedReason?: string
+  timestamp: number
+  processedOn?: number
+  finishedOn?: number
+}>()
+
 /**
- * Add job to queue (or execute directly if Redis unavailable)
+ * Check if Redis is available (always returns false now)
+ */
+export const isRedisAvailable = () => false
+
+/**
+ * Add job (direct execution mode - no queue)
  */
 export async function addJob(data: DiagramJobData) {
-  if (!diagramQueue || !redisAvailable) {
-    throw new Error('Redis not available. Jobs must be processed directly.')
-  }
+  // In direct execution mode, jobs are handled immediately by the caller
+  // This function is kept for API compatibility but doesn't queue anything
+  console.log('Job added (direct execution mode):', data.jobId)
   
-  try {
-    return await diagramQueue.add(data.type, data, {
-      jobId: data.jobId,
-    })
-  } catch (error: any) {
-    console.error('Error adding job to queue:', error)
-    throw new Error('Failed to add job to queue. Redis may not be running.')
-  }
+  // Store initial job status
+  jobStatusStore.set(data.jobId, {
+    id: data.jobId,
+    name: data.type,
+    state: 'waiting',
+    progress: 0,
+    data,
+    timestamp: Date.now(),
+  })
+  
+  return { id: data.jobId, name: data.type }
 }
 
 /**
  * Get job status
  */
 export async function getJobStatus(jobId: string) {
-  if (!diagramQueue || !redisAvailable) {
-    return null
-  }
+  const status = jobStatusStore.get(jobId)
+  return status || null
+}
 
-  try {
-    const job = await diagramQueue.getJob(jobId)
-    if (!job) {
-      return null
-    }
-
-    const state = await job.getState()
-    const progress = job.progress
-    const returnValue = job.returnvalue
-    const failedReason = job.failedReason
-
-    return {
-      id: job.id,
-      name: job.name,
-      state,
-      progress,
-      data: job.data,
-      returnValue,
-      failedReason,
-      timestamp: job.timestamp,
-      processedOn: job.processedOn,
-      finishedOn: job.finishedOn,
-    }
-  } catch (error: any) {
-    console.error('Error getting job status:', error)
-    return null
+/**
+ * Update job status
+ */
+export function updateJobStatus(
+  jobId: string,
+  updates: Partial<{
+    state: 'waiting' | 'active' | 'completed' | 'failed'
+    progress: number
+    returnValue: any
+    failedReason: string
+  }>
+) {
+  const current = jobStatusStore.get(jobId)
+  if (current) {
+    jobStatusStore.set(jobId, {
+      ...current,
+      ...updates,
+      processedOn: updates.state === 'active' ? Date.now() : current.processedOn,
+      finishedOn: (updates.state === 'completed' || updates.state === 'failed') ? Date.now() : current.finishedOn,
+    })
   }
 }
 
@@ -185,34 +118,35 @@ export async function getJobStatus(jobId: string) {
  * Get all jobs for a jobId pattern
  */
 export async function getJobsByPattern(pattern: string) {
-  if (!diagramQueue || !redisAvailable) {
-    return []
+  const jobs: any[] = []
+  for (const [jobId, status] of jobStatusStore.entries()) {
+    if (jobId.includes(pattern)) {
+      jobs.push(status)
+    }
   }
-
-  try {
-    const jobs = await diagramQueue.getJobs(['waiting', 'active', 'completed', 'failed'])
-    return jobs.filter((job: Job) => job.id?.toString().includes(pattern))
-  } catch (error: any) {
-    console.error('Error getting jobs by pattern:', error)
-    return []
-  }
+  return jobs
 }
 
 /**
- * Clean up queue
+ * Clean up queue (no-op in direct execution mode)
  */
 export async function cleanQueue() {
-  if (!diagramQueue || !redisAvailable) {
-    return
-  }
-
-  try {
-    await diagramQueue.clean(0, 100, 'completed')
-    await diagramQueue.clean(0, 100, 'failed')
-  } catch (error: any) {
-    console.error('Error cleaning queue:', error)
+  // Clean up old completed/failed jobs (older than 24 hours)
+  const now = Date.now()
+  const maxAge = 24 * 60 * 60 * 1000 // 24 hours
+  
+  for (const [jobId, status] of jobStatusStore.entries()) {
+    if (
+      (status.state === 'completed' || status.state === 'failed') &&
+      status.finishedOn &&
+      (now - status.finishedOn) > maxAge
+    ) {
+      jobStatusStore.delete(jobId)
+    }
   }
 }
 
-export default diagramQueue
+// No queue instance in direct execution mode
+export const diagramQueue = null
 
+export default diagramQueue

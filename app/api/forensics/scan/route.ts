@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
-import { addJob, PlagiarismJobData, isRedisAvailable } from '../../../../queue/diagramQueue'
+import { addJob, PlagiarismJobData, updateJobStatus } from '../../../../queue/diagramQueue'
 import { spawn } from 'child_process'
 
 /**
@@ -46,84 +46,60 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes)
     await writeFile(pdfPath, buffer)
 
-    // Check if Redis is available
-    if (!isRedisAvailable()) {
-      // Fallback: Execute directly without queue
-      console.log('Redis not available, executing plagiarism check directly...')
-      
-      // Run plagiarism engine directly
-      const scriptPath = path.join(process.cwd(), 'scripts', 'plagiarism_engine.py')
-      const pythonProcess = spawn('python', [scriptPath, pdfPath], {
-        cwd: process.cwd(),
-        stdio: 'pipe',
-      })
-
-      let output = ''
-      let errorOutput = ''
-
-      pythonProcess.stdout.on('data', (data) => {
-        output += data.toString()
-      })
-
-      pythonProcess.stderr.on('data', (data) => {
-        errorOutput += data.toString()
-      })
-
-      pythonProcess.on('close', (code) => {
-        if (code !== 0) {
-          console.error('Plagiarism engine error:', errorOutput)
-        }
-      })
-
-      // Don't wait for completion, return immediately
-      return NextResponse.json({
-        success: true,
-        jobId,
-        message: 'Scan started (direct execution mode - Redis not available)',
-        mode: 'direct',
-        warning: 'Redis is not running. Job is executing directly. Status tracking unavailable.',
-      })
-    }
-
-    // Add job to queue (Redis available)
+    // Execute directly (no queue system)
+    console.log('Executing plagiarism check directly...')
+    
+    // Add job to status tracking
     const jobData: PlagiarismJobData = {
       type: 'plagiarism',
       pdfPath,
       jobId,
     }
+    await addJob(jobData)
+    updateJobStatus(jobId, { state: 'active', progress: 0 })
+    
+    // Run plagiarism engine directly
+    const scriptPath = path.join(process.cwd(), 'scripts', 'plagiarism_engine.py')
+    const pythonProcess = spawn('python', [scriptPath, pdfPath], {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    })
 
-    try {
-      await addJob(jobData)
-      return NextResponse.json({
-        success: true,
-        jobId,
-        message: 'Scan started successfully',
-        mode: 'queue',
-      })
-    } catch (error: any) {
-      // If queue fails, fall back to direct execution
-      console.warn('Queue failed, falling back to direct execution:', error.message)
-      
-      const scriptPath = path.join(process.cwd(), 'scripts', 'plagiarism_engine.py')
-      const pythonProcess = spawn('python', [scriptPath, pdfPath], {
-        cwd: process.cwd(),
-        stdio: 'pipe',
-      })
+    let output = ''
+    let errorOutput = ''
 
-      pythonProcess.on('close', (code) => {
-        if (code !== 0) {
-          console.error('Plagiarism engine error')
-        }
-      })
+    pythonProcess.stdout.on('data', (data) => {
+      output += data.toString()
+    })
 
-      return NextResponse.json({
-        success: true,
-        jobId,
-        message: 'Scan started (direct execution mode - queue unavailable)',
-        mode: 'direct',
-        warning: 'Queue unavailable. Job is executing directly.',
-      })
-    }
+    pythonProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString()
+    })
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        updateJobStatus(jobId, { 
+          state: 'completed', 
+          progress: 100,
+          returnValue: { success: true, output }
+        })
+      } else {
+        updateJobStatus(jobId, { 
+          state: 'failed', 
+          progress: 100,
+          failedReason: errorOutput || 'Process exited with error'
+        })
+        console.error('Plagiarism engine error:', errorOutput)
+      }
+    })
+
+    // Don't wait for completion, return immediately
+    return NextResponse.json({
+      success: true,
+      jobId,
+      message: 'Scan started successfully (direct execution mode)',
+      mode: 'direct',
+    })
   } catch (error: any) {
     console.error('Error in forensics scan API:', error)
     return NextResponse.json(

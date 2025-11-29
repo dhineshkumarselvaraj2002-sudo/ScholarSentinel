@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getJobStatus, isRedisAvailable } from '../../../../queue/diagramQueue'
+import { getJobStatus } from '../../../../queue/diagramQueue'
 
 /**
  * API Route: /api/forensics/status
@@ -21,25 +21,23 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Check if Redis is available
-    if (!isRedisAvailable()) {
-      return NextResponse.json({
-        error: 'Redis not available. Status tracking unavailable in direct execution mode.',
-        mode: 'direct',
-        warning: 'Job is running directly without queue. Check results directory for output.',
-      }, { status: 503 })
-    }
-
     const status = await getJobStatus(jobId)
 
     if (!status) {
       return NextResponse.json(
-        { error: 'Job not found' },
+        { 
+          error: 'Job not found',
+          mode: 'direct',
+          message: 'Job may have completed or status was not tracked. Check results directory for output.',
+        },
         { status: 404 }
       )
     }
 
-    return NextResponse.json(status)
+    return NextResponse.json({
+      ...status,
+      mode: 'direct',
+    })
   } catch (error: any) {
     console.error('Error in forensics status API:', error)
     return NextResponse.json(

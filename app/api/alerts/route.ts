@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/src/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
+    // Lazy load Prisma to avoid build-time issues
+    const { prisma } = await import('@/src/lib/prisma')
+    
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get('type')
     const severity = searchParams.get('severity')
@@ -71,6 +74,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Lazy load Prisma to avoid build-time issues
+    const { prisma } = await import('@/src/lib/prisma')
+    
     const body = await request.json()
     const { alertId, isRead } = body
 
