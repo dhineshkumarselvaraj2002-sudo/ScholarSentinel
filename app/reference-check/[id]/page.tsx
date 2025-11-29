@@ -87,11 +87,11 @@ export default function ReferenceCheckDetailPage() {
   const compareValues = (aiValue: any, apiValue: any, field: string): { match: boolean; ai: string; api: string } => {
     const aiStr = aiValue ? String(aiValue).trim() : ''
     const apiStr = apiValue ? String(apiValue).trim() : ''
-    
+
     if (field === 'authors') {
       // For authors, compare arrays
       const aiAuthors = Array.isArray(aiValue) ? aiValue.map((a: any) => a.name || a).join(', ') : aiStr
-      const apiAuthors = Array.isArray(apiValue) 
+      const apiAuthors = Array.isArray(apiValue)
         ? apiValue.map((a: any) => a.name || `${a.given || ''} ${a.family || ''}`.trim() || a.display_name || a).join(', ')
         : apiStr
       return {
@@ -100,7 +100,7 @@ export default function ReferenceCheckDetailPage() {
         api: apiAuthors || 'N/A',
       }
     }
-    
+
     return {
       match: aiStr.toLowerCase() === apiStr.toLowerCase(),
       ai: aiStr || 'N/A',
@@ -129,6 +129,7 @@ export default function ReferenceCheckDetailPage() {
   }
 
   const authorNames = paper.authors?.map((pa: any) => pa.author.name).join(', ') || ''
+  const contentValidation = paper.metadata?.contentValidation
 
   return (
     <div>
@@ -141,7 +142,7 @@ export default function ReferenceCheckDetailPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Reference Check
         </Button>
-        
+
         <h1 className="text-3xl font-bold mb-2">{paper.title}</h1>
         {authorNames && (
           <p className="text-muted-foreground mb-4">{authorNames}</p>
@@ -152,6 +153,43 @@ export default function ReferenceCheckDetailPage() {
           <Badge variant="secondary">{references.length} references</Badge>
         </div>
       </div>
+
+      {/* Figure Validation Results */}
+      {contentValidation?.figure_validation && (
+        <Card className="mb-6 border-blue-200 bg-blue-50/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-blue-500" />
+              Figure Validation
+            </CardTitle>
+            <CardDescription>
+              Checking if figures are cited at least twice in the text
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(contentValidation.figure_validation.validation || {}).map(([figNum, result]: [string, any]) => (
+                <div key={figNum} className={`p-3 rounded-lg border ${result.valid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold">Figure {figNum}</span>
+                    {result.valid ? (
+                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Valid</Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Invalid</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {result.reason}
+                  </p>
+                </div>
+              ))}
+              {Object.keys(contentValidation.figure_validation.validation || {}).length === 0 && (
+                <p className="text-muted-foreground">No figures detected in text.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -167,201 +205,261 @@ export default function ReferenceCheckDetailPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {references.map((ref) => (
-                <Card key={ref.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline">#{ref.order}</Badge>
-                          {ref.status && (
-                            <ReferenceStatusBadge status={ref.status as any} />
+              {references.map((ref) => {
+                // Get content check result from verificationData
+                const verificationData = (ref as any).verificationData
+                const contentCheck = verificationData?.contentCheck
+
+                return (
+                  <Card key={ref.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline">#{ref.order}</Badge>
+                            {ref.status && (
+                              <ReferenceStatusBadge status={ref.status as any} />
+                            )}
+                            {contentCheck && (
+                              <Badge variant={contentCheck.valid ? "outline" : "destructive"} className={contentCheck.valid ? "border-green-500 text-green-700 bg-green-50" : ""}>
+                                {contentCheck.valid ? "Cited in Text" : "Not Cited"}
+                              </Badge>
+                            )}
+                          </div>
+                          <h3 className="font-semibold mb-2">
+                            {ref.normalizedTitle || ref.rawText.substring(0, 100) + '...'}
+                          </h3>
+                          {ref.normalizedAuthors && (
+                            <p className="text-sm text-muted-foreground mb-1">
+                              <strong>Authors:</strong> {ref.normalizedAuthors}
+                            </p>
                           )}
-                        </div>
-                        <h3 className="font-semibold mb-2">
-                          {ref.normalizedTitle || ref.rawText.substring(0, 100) + '...'}
-                        </h3>
-                        {ref.normalizedAuthors && (
-                          <p className="text-sm text-muted-foreground mb-1">
-                            <strong>Authors:</strong> {ref.normalizedAuthors}
-                          </p>
-                        )}
-                        <div className="flex gap-2 flex-wrap mt-2">
-                          {ref.normalizedYear && (
-                            <Badge variant="outline">{ref.normalizedYear}</Badge>
-                          )}
-                          {ref.normalizedVenue && (
-                            <Badge variant="outline">{ref.normalizedVenue}</Badge>
-                          )}
-                          {ref.normalizedDoi && (
-                            <Badge variant="outline" className="font-mono text-xs">
-                              DOI: {ref.normalizedDoi}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="ml-4"
-                            onClick={() => handleViewDetails(ref.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>Reference Details Comparison</DialogTitle>
-                            <DialogDescription>
-                              Compare AI extracted data with API fetched data
-                            </DialogDescription>
-                          </DialogHeader>
-                          
-                          {loadingDetails ? (
-                            <div className="flex items-center justify-center py-12">
-                              <Loader2 className="h-6 w-6 animate-spin" />
+                          <div className="flex gap-2 flex-wrap mt-2">
+                            {ref.normalizedYear && (
+                              <Badge variant="outline">{ref.normalizedYear}</Badge>
+                            )}
+                            {ref.normalizedVenue && (
+                              <Badge variant="outline">{ref.normalizedVenue}</Badge>
+                            )}
+                            {ref.normalizedDoi && (
+                              <Badge variant="outline" className="font-mono text-xs">
+                                DOI: {ref.normalizedDoi}
+                              </Badge>
+                            )}
+                          </div>
+                          {contentCheck && !contentCheck.valid && (
+                            <div className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              {contentCheck.reason}
                             </div>
-                          ) : referenceDetails ? (
-                            <div className="space-y-6 mt-4">
-                              {/* Title Comparison */}
-                              <div className="border rounded-lg p-4">
-                                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                                  Title
-                                  {referenceDetails.aiExtracted?.title && referenceDetails.apiFetched?.data?.title && (
-                                    compareValues(referenceDetails.aiExtracted.title, referenceDetails.apiFetched.data.title, 'title').match ? (
-                                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                    ) : (
-                                      <XCircle className="h-4 w-4 text-red-500" />
-                                    )
-                                  )}
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">AI Extracted</p>
-                                    <p className="text-sm">{referenceDetails.aiExtracted?.title || referenceDetails.pdfExtracted.normalizedTitle || 'N/A'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">API Fetched ({referenceDetails.apiFetched?.source || 'N/A'})</p>
-                                    <p className="text-sm">{referenceDetails.apiFetched?.data?.title || 'N/A'}</p>
-                                  </div>
-                                </div>
-                              </div>
+                          )}
+                        </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-4"
+                              onClick={() => handleViewDetails(ref.id)}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Reference Details Comparison</DialogTitle>
+                              <DialogDescription>
+                                Compare AI extracted data with API fetched data
+                              </DialogDescription>
+                            </DialogHeader>
 
-                              {/* Authors Comparison */}
-                              <div className="border rounded-lg p-4">
-                                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                                  Authors
-                                  {referenceDetails.aiExtracted?.authors && referenceDetails.apiFetched?.data?.authors && (
-                                    compareValues(referenceDetails.aiExtracted.authors, referenceDetails.apiFetched.data.authors, 'authors').match ? (
-                                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                    ) : (
-                                      <AlertCircle className="h-4 w-4 text-yellow-500" />
-                                    )
-                                  )}
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">AI Extracted</p>
-                                    <p className="text-sm">
-                                      {Array.isArray(referenceDetails.aiExtracted?.authors)
-                                        ? referenceDetails.aiExtracted.authors.map((a: any) => a.name || a).join(', ')
-                                        : referenceDetails.aiExtracted?.authors || referenceDetails.pdfExtracted.normalizedAuthors || 'N/A'}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">API Fetched</p>
-                                    <p className="text-sm">
-                                      {Array.isArray(referenceDetails.apiFetched?.data?.authors)
-                                        ? referenceDetails.apiFetched.data.authors.map((a: any) => 
-                                            a.name || `${a.given || ''} ${a.family || ''}`.trim() || a.display_name || a
-                                          ).join(', ')
-                                        : referenceDetails.apiFetched?.data?.authors || 'N/A'}
-                                    </p>
-                                  </div>
-                                </div>
+                            {loadingDetails ? (
+                              <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-6 w-6 animate-spin" />
                               </div>
-
-                              {/* Year Comparison */}
-                              <div className="border rounded-lg p-4">
-                                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                                  Year
-                                  {referenceDetails.aiExtracted?.year && referenceDetails.apiFetched?.data?.year && (
-                                    compareValues(referenceDetails.aiExtracted.year, referenceDetails.apiFetched.data.year, 'year').match ? (
-                                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                    ) : (
-                                      <XCircle className="h-4 w-4 text-red-500" />
-                                    )
-                                  )}
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">AI Extracted</p>
-                                    <p className="text-sm">{referenceDetails.aiExtracted?.year || referenceDetails.pdfExtracted.normalizedYear || 'N/A'}</p>
+                            ) : referenceDetails ? (
+                              <div className="space-y-6 mt-4">
+                                {/* Citation Validation in Details */}
+                                {referenceDetails.apiFetched?.contentCheck && (
+                                  <div className={`border-2 rounded-lg p-4 ${referenceDetails.apiFetched.contentCheck.valid ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+                                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                      Citation Validation
+                                      {referenceDetails.apiFetched.contentCheck.valid ? (
+                                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                      ) : (
+                                        <XCircle className="h-5 w-5 text-red-600" />
+                                      )}
+                                    </h3>
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium">Status:</span>
+                                        <Badge variant={referenceDetails.apiFetched.contentCheck.valid ? "default" : "destructive"} className={referenceDetails.apiFetched.contentCheck.valid ? "bg-green-600" : ""}>
+                                          {referenceDetails.apiFetched.contentCheck.valid ? "Cited in Text" : "Not Cited in Text"}
+                                        </Badge>
+                                      </div>
+                                      <div>
+                                        <span className="text-sm font-medium">Reason:</span>
+                                        <p className="text-sm mt-1 text-muted-foreground">
+                                          {referenceDetails.apiFetched.contentCheck.reason || 'No reason provided'}
+                                        </p>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-1">API Fetched</p>
-                                    <p className="text-sm">{referenceDetails.apiFetched?.data?.year || referenceDetails.apiFetched?.data?.publication_year || 'N/A'}</p>
-                                  </div>
-                                </div>
-                              </div>
+                                )}
 
-                              {/* DOI Comparison */}
-                              {(referenceDetails.aiExtracted?.doi || referenceDetails.apiFetched?.data?.doi) && (
+                                {/* Title Comparison */}
                                 <div className="border rounded-lg p-4">
-                                  <h3 className="font-semibold mb-3">DOI</h3>
+                                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                    Title
+                                    {referenceDetails.aiExtracted?.title && referenceDetails.apiFetched?.data?.title && (
+                                      compareValues(referenceDetails.aiExtracted.title, referenceDetails.apiFetched.data.title, 'title').match ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                      ) : (
+                                        <XCircle className="h-4 w-4 text-red-500" />
+                                      )
+                                    )}
+                                  </h3>
                                   <div className="grid grid-cols-2 gap-4">
                                     <div>
                                       <p className="text-sm font-medium text-muted-foreground mb-1">AI Extracted</p>
-                                      <p className="text-sm">{referenceDetails.aiExtracted?.doi || referenceDetails.pdfExtracted.normalizedDoi || 'N/A'}</p>
+                                      <p className="text-sm">{referenceDetails.aiExtracted?.title || referenceDetails.pdfExtracted.normalizedTitle || 'N/A'}</p>
                                     </div>
                                     <div>
-                                      <p className="text-sm font-medium text-muted-foreground mb-1">API Fetched</p>
-                                      <p className="text-sm">{referenceDetails.apiFetched?.data?.doi || 'N/A'}</p>
+                                      <p className="text-sm font-medium text-muted-foreground mb-1">
+                                        API Fetched ({referenceDetails.apiFetched?.source || 'N/A'})
+                                        {!referenceDetails.apiFetched?.data?.title && (
+                                          <span className="text-xs text-orange-600 ml-2">(No API data - re-validate reference)</span>
+                                        )}
+                                      </p>
+                                      <p className="text-sm">{referenceDetails.apiFetched?.data?.title || 'N/A'}</p>
                                     </div>
                                   </div>
                                 </div>
-                              )}
 
-                              {/* Match Score */}
-                              {referenceDetails.apiFetched?.matchScore !== undefined && (
-                                <div className="border rounded-lg p-4 bg-muted/50">
-                                  <h3 className="font-semibold mb-2">Match Score</h3>
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex-1 bg-background rounded-full h-2">
-                                      <div
-                                        className="bg-primary h-2 rounded-full"
-                                        style={{ width: `${(referenceDetails.apiFetched.matchScore || 0) * 100}%` }}
-                                      />
+                                {/* Authors Comparison */}
+                                <div className="border rounded-lg p-4">
+                                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                    Authors
+                                    {referenceDetails.aiExtracted?.authors && referenceDetails.apiFetched?.data?.authors && (
+                                      compareValues(referenceDetails.aiExtracted.authors, referenceDetails.apiFetched.data.authors, 'authors').match ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                      ) : (
+                                        <AlertCircle className="h-4 w-4 text-yellow-500" />
+                                      )
+                                    )}
+                                  </h3>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <p className="text-sm font-medium text-muted-foreground mb-1">AI Extracted</p>
+                                      <p className="text-sm">
+                                        {Array.isArray(referenceDetails.aiExtracted?.authors)
+                                          ? referenceDetails.aiExtracted.authors.map((a: any) => a.name || a).join(', ')
+                                          : referenceDetails.aiExtracted?.authors || referenceDetails.pdfExtracted.normalizedAuthors || 'N/A'}
+                                      </p>
                                     </div>
-                                    <span className="text-sm font-medium">
-                                      {(referenceDetails.apiFetched.matchScore * 100).toFixed(0)}%
-                                    </span>
+                                    <div>
+                                      <p className="text-sm font-medium text-muted-foreground mb-1">
+                                        API Fetched
+                                        {!referenceDetails.apiFetched?.data?.authors && (
+                                          <span className="text-xs text-orange-600 ml-2">(No API data)</span>
+                                        )}
+                                      </p>
+                                      <p className="text-sm">
+                                        {Array.isArray(referenceDetails.apiFetched?.data?.authors)
+                                          ? referenceDetails.apiFetched.data.authors.map((a: any) =>
+                                            a.name || `${a.given || ''} ${a.family || ''}`.trim() || a.display_name || a
+                                          ).join(', ')
+                                          : referenceDetails.apiFetched?.data?.authors || 'N/A'}
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
-                              )}
 
-                              {/* Raw Text */}
-                              <div className="border rounded-lg p-4">
-                                <h3 className="font-semibold mb-2">Raw Reference Text</h3>
-                                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                  {referenceDetails.pdfExtracted.rawText}
-                                </p>
+                                {/* Year Comparison */}
+                                <div className="border rounded-lg p-4">
+                                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                    Year
+                                    {referenceDetails.aiExtracted?.year && referenceDetails.apiFetched?.data?.year && (
+                                      compareValues(referenceDetails.aiExtracted.year, referenceDetails.apiFetched.data.year, 'year').match ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                      ) : (
+                                        <XCircle className="h-4 w-4 text-red-500" />
+                                      )
+                                    )}
+                                  </h3>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <p className="text-sm font-medium text-muted-foreground mb-1">AI Extracted</p>
+                                      <p className="text-sm">{referenceDetails.aiExtracted?.year || referenceDetails.pdfExtracted.normalizedYear || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-muted-foreground mb-1">
+                                        API Fetched
+                                        {!referenceDetails.apiFetched?.data?.year && !referenceDetails.apiFetched?.data?.publication_year && (
+                                          <span className="text-xs text-orange-600 ml-2">(No API data)</span>
+                                        )}
+                                      </p>
+                                      <p className="text-sm">{referenceDetails.apiFetched?.data?.year || referenceDetails.apiFetched?.data?.publication_year || 'N/A'}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* DOI Comparison */}
+                                {(referenceDetails.aiExtracted?.doi || referenceDetails.apiFetched?.data?.doi) && (
+                                  <div className="border rounded-lg p-4">
+                                    <h3 className="font-semibold mb-3">DOI</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                        <p className="text-sm font-medium text-muted-foreground mb-1">AI Extracted</p>
+                                        <p className="text-sm">{referenceDetails.aiExtracted?.doi || referenceDetails.pdfExtracted.normalizedDoi || 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium text-muted-foreground mb-1">API Fetched</p>
+                                        <p className="text-sm">{referenceDetails.apiFetched?.data?.doi || 'N/A'}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Match Score */}
+                                {referenceDetails.apiFetched?.matchScore !== undefined && (
+                                  <div className="border rounded-lg p-4 bg-muted/50">
+                                    <h3 className="font-semibold mb-2">Match Score</h3>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1 bg-background rounded-full h-2">
+                                        <div
+                                          className="bg-primary h-2 rounded-full"
+                                          style={{ width: `${(referenceDetails.apiFetched.matchScore || 0) * 100}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-sm font-medium">
+                                        {(referenceDetails.apiFetched.matchScore * 100).toFixed(0)}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Raw Text */}
+                                <div className="border rounded-lg p-4">
+                                  <h3 className="font-semibold mb-2">Raw Reference Text</h3>
+                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {referenceDetails.pdfExtracted.rawText}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-muted-foreground">
-                              No details available
-                            </div>
-                          )}
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                            ) : (
+                              <div className="text-center py-8 text-muted-foreground">
+                                No details available
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           )}
         </CardContent>

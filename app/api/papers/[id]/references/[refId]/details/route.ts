@@ -55,24 +55,55 @@ export async function GET(
       
       if (verificationData.source === 'crossref_search' || verificationData.source === 'crossref') {
         // Handle Crossref data from database
+        // Crossref title can be an array or a string
+        const apiTitle = Array.isArray(storedData.title) 
+          ? (storedData.title[0] || storedData.title.join(' '))
+          : (storedData.title || '')
+        
+        // Crossref authors can be in different formats
+        let apiAuthors: any[] = []
+        if (storedData.author && Array.isArray(storedData.author)) {
+          apiAuthors = storedData.author.map((a: any) => ({
+            given: a.given || '',
+            family: a.family || '',
+            name: `${a.given || ''} ${a.family || ''}`.trim() || a.name || '',
+          }))
+        } else if (storedData.author) {
+          // Handle single author object
+          apiAuthors = [{
+            given: storedData.author.given || '',
+            family: storedData.author.family || '',
+            name: `${storedData.author.given || ''} ${storedData.author.family || ''}`.trim(),
+          }]
+        }
+        
+        // Extract year from published date
+        let apiYear: number | null = null
+        if (storedData.published?.['date-parts']?.[0]?.[0]) {
+          apiYear = storedData.published['date-parts'][0][0]
+        } else if (storedData.year) {
+          apiYear = typeof storedData.year === 'number' ? storedData.year : parseInt(storedData.year)
+        } else if (storedData.published?.date_parts?.[0]?.[0]) {
+          apiYear = storedData.published.date_parts[0][0]
+        }
+        
         apiFetched = {
           source: 'crossref',
           data: {
-            title: storedData.title?.[0] || storedData.title || '',
-            authors: storedData.author?.map((a: any) => ({
-              given: a.given,
-              family: a.family,
-              name: `${a.given || ''} ${a.family || ''}`.trim(),
-            })) || [],
-            doi: storedData.DOI || storedData.doi,
+            title: apiTitle,
+            authors: apiAuthors,
+            doi: storedData.DOI || storedData.doi || '',
             published: storedData.published,
-            year: storedData.published?.['date-parts']?.[0]?.[0] || storedData.year,
-            journal: storedData['container-title']?.[0] || storedData.journal,
-            url: storedData.URL || storedData.url,
-            abstract: storedData.abstract,
+            year: apiYear,
+            journal: Array.isArray(storedData['container-title']) 
+              ? (storedData['container-title'][0] || storedData['container-title'].join(', '))
+              : (storedData['container-title'] || storedData.journal || ''),
+            url: storedData.URL || storedData.url || '',
+            abstract: storedData.abstract || '',
           },
           matchScore: verificationData.matchScore || 0,
-          titleSimilarity: verificationData.titleSimilarity,
+          titleSimilarity: verificationData.titleSimilarity || 0,
+          contentCheck: verificationData.contentCheck || null,
         }
       } else if (verificationData.source === 'openalex' || verificationData.source === 'openalex_search') {
         apiFetched = {
@@ -98,6 +129,16 @@ export async function GET(
           },
           matchScore: verificationData.matchScore || 0,
           titleSimilarity: verificationData.titleSimilarity,
+          contentCheck: verificationData.contentCheck || null,
+        }
+      } else {
+        // For other sources, still include contentCheck if available
+        apiFetched = {
+          source: verificationData.source || 'unknown',
+          data: storedData,
+          matchScore: verificationData.matchScore || 0,
+          titleSimilarity: verificationData.titleSimilarity,
+          contentCheck: verificationData.contentCheck || null,
         }
       }
     }

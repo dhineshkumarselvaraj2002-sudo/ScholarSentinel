@@ -300,9 +300,9 @@ export default function DiagramCheckerPage() {
   return (
     <div className="max-w-7xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Diagram Checker</h1>
+        <h1 className="text-3xl font-bold mb-2">Diagram Check Module</h1>
         <p className="text-muted-foreground">
-          Upload a PDF to extract diagrams/images, detect duplicates, and prepare for reverse image search.
+          Extract diagrams/images from PDFs, detect duplicates, and prepare for reverse image search. Run this module separately to analyze diagrams.
         </p>
       </div>
 

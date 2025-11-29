@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Input } from '@/src/components/ui/input'
-import { Search, FileText, CheckCircle2, AlertCircle, XCircle, Upload, Loader2, Eye, Trash2, RefreshCw } from 'lucide-react'
+import { Search, FileText, CheckCircle2, AlertCircle, XCircle, Upload, Loader2, Eye, Trash2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/src/hooks/use-toast'
 import axios, { CancelTokenSource } from 'axios'
@@ -263,12 +263,13 @@ export default function ReferenceCheckPage() {
     }
   }
 
+
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Reference Check</h1>
+        <h1 className="text-3xl font-bold mb-2">Reference Check Module</h1>
         <p className="text-muted-foreground">
-          Verify and validate references in research papers using multiple validation methods.
+          Extract and validate references in research papers. Run this module separately to check references against Crossref database.
         </p>
       </div>
 
@@ -362,6 +363,11 @@ export default function ReferenceCheckPage() {
               {papers.map((paper) => {
                 const authorNames = paper.authors.map(pa => pa.author.name).join(', ')
                 const isValidating = validatingPapers.has(paper.id)
+                const validation = (paper as any).metadata?.validationAnalysis
+                const refValidation = validation?.referenceValidation
+                const contentCheck = validation?.contentCheck
+                const refValidationPercentage = refValidation?.percentage || 0
+                const contentCheckPercentage = contentCheck?.percentage || 0
                 
                 return (
                   <Card key={paper.id} className="hover:shadow-md transition-shadow">
@@ -390,6 +396,85 @@ export default function ReferenceCheckPage() {
                                 Validating...
                               </Badge>
                             )}
+                          </div>
+                          
+                          {/* Validation Statistics - Always show */}
+                          <div className="mt-4 grid grid-cols-2 gap-3">
+                            {/* Reference Validation */}
+                            <div className={`p-3 rounded-lg border ${
+                              refValidationPercentage >= 75 
+                                ? 'bg-green-50 border-green-200' 
+                                : refValidationPercentage > 0
+                                ? 'bg-red-50 border-red-200'
+                                : 'bg-gray-50 border-gray-200'
+                            }`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <FileText className={`h-4 w-4 ${
+                                  refValidationPercentage >= 75 ? 'text-green-600' : 
+                                  refValidationPercentage > 0 ? 'text-red-600' : 'text-gray-500'
+                                }`} />
+                                <span className="text-sm font-medium">Reference Valid</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {refValidationPercentage >= 75 ? (
+                                  <TrendingUp className="h-4 w-4 text-green-600" />
+                                ) : refValidationPercentage > 0 ? (
+                                  <TrendingDown className="h-4 w-4 text-red-600" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 text-gray-500" />
+                                )}
+                                <span className={`text-xl font-bold ${
+                                  refValidationPercentage >= 75 ? 'text-green-700' : 
+                                  refValidationPercentage > 0 ? 'text-red-700' : 'text-gray-600'
+                                }`}>
+                                  {refValidationPercentage.toFixed(1)}%
+                                </span>
+                              </div>
+                              {refValidation ? (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {refValidation.valid || 0} / {refValidation.total || 0} valid
+                                </p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Not validated yet
+                                </p>
+                              )}
+                            </div>
+                            
+                            {/* Content Check (Citation) */}
+                            <div className={`p-3 rounded-lg border ${
+                              contentCheckPercentage >= 75 
+                                ? 'bg-green-50 border-green-200' 
+                                : contentCheckPercentage > 0
+                                ? 'bg-red-50 border-red-200'
+                                : 'bg-gray-50 border-gray-200'
+                            }`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <CheckCircle2 className={`h-4 w-4 ${
+                                  contentCheckPercentage >= 75 ? 'text-green-600' : 
+                                  contentCheckPercentage > 0 ? 'text-red-600' : 'text-gray-500'
+                                }`} />
+                                <span className="text-sm font-medium">Valid in Citation</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {contentCheckPercentage >= 75 ? (
+                                  <TrendingUp className="h-4 w-4 text-green-600" />
+                                ) : contentCheckPercentage > 0 ? (
+                                  <TrendingDown className="h-4 w-4 text-red-600" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 text-gray-500" />
+                                )}
+                                <span className={`text-xl font-bold ${
+                                  contentCheckPercentage >= 75 ? 'text-green-700' : 
+                                  contentCheckPercentage > 0 ? 'text-red-700' : 'text-gray-600'
+                                }`}>
+                                  {contentCheckPercentage.toFixed(1)}%
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {contentCheckPercentage > 0 ? 'Cited in text' : 'Not checked yet'}
+                              </p>
+                            </div>
                           </div>
                         </div>
                         <div className="flex gap-2 ml-4">

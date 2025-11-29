@@ -3,7 +3,7 @@ import { prisma } from '@/src/lib/prisma'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import fs from 'fs'
-import { extractTextFromPDF, extractReferencesFromPDF } from '@/src/lib/api/pdf-service'
+import { extractTextFromPDF, extractReferencesFromPDF, extractFiguresFromPDF, validateContent } from '@/src/lib/api/pdf-service'
 import { checkDuplicatePaper } from '@/src/lib/validation'
 import { validateWithOpenAlex } from '@/src/lib/api/openalex'
 import { getCrossrefPaperByDOI } from '@/src/lib/api/crossref'
@@ -223,6 +223,10 @@ async function processFile(
     // Automatically extract and validate references
     let referencesExtracted = false
     let referencesValidated = false
+    let referenceValidationPercentage = 0
+    let contentCheckPercentage = 0
+    let validationAnalysis: any = null
+
     try {
       if (paper.pdfPath && fs.existsSync(path.join(process.cwd(), 'uploads', paper.pdfPath))) {
         // Extract references from PDF
@@ -259,6 +263,10 @@ async function processFile(
           const references = await prisma.reference.findMany({
             where: { paperId: paper.id },
           })
+
+          let validCount = 0
+          let invalidCount = 0
+          let missingCount = 0
 
           for (const ref of references) {
             let status: 'VALID' | 'INVALID' | 'MISSING' = 'MISSING'
@@ -336,6 +344,11 @@ async function processFile(
               }
             }
 
+            // Count statuses
+            if (status === 'VALID') validCount++
+            else if (status === 'INVALID') invalidCount++
+            else missingCount++
+
             // Update reference with validation results
             await prisma.reference.update({
               where: { id: ref.id },
@@ -345,7 +358,109 @@ async function processFile(
               },
             })
           }
+
+          // Calculate reference validation percentage
+          const totalReferences = references.length
+          if (totalReferences > 0) {
+            referenceValidationPercentage = (validCount / totalReferences) * 100
+          }
           referencesValidated = true
+
+          // Run content check
+          try {
+            const textResult = await extractTextFromPDF(pdfPath, geminiApiKey)
+            if (textResult && textResult.text) {
+              const referencesForValidation = references.map(ref => ({
+                order: ref.order,
+                raw_text: ref.rawText,
+                normalized_authors: ref.normalizedAuthors || undefined,
+                normalized_title: ref.normalizedTitle || undefined,
+                normalized_year: ref.normalizedYear || undefined,
+                normalized_doi: ref.normalizedDoi || undefined,
+                normalized_venue: ref.normalizedVenue || undefined,
+              }))
+
+              const contentValidationResults = await validateContent(
+                textResult.text,
+                referencesForValidation
+              )
+
+              // Calculate content check percentage (references cited in text)
+              if (contentValidationResults.reference_validation && contentValidationResults.reference_validation.length > 0) {
+                const citedCount = contentValidationResults.reference_validation.filter(
+                  (r: any) => r.content_check?.valid
+                ).length
+                contentCheckPercentage = (citedCount / contentValidationResults.reference_validation.length) * 100
+
+                // Update references with content check results
+                for (const refValidation of contentValidationResults.reference_validation) {
+                  const ref = references.find(r => r.order === refValidation.order)
+                  if (ref) {
+                    const currentVerificationData = (ref.verificationData as any) || {}
+                    await prisma.reference.update({
+                      where: { id: ref.id },
+                      data: {
+                        verificationData: {
+                          ...currentVerificationData,
+                          contentCheck: refValidation.content_check,
+                        },
+                      },
+                    })
+                  }
+                }
+              }
+
+              // Store content validation results in paper metadata
+              validationAnalysis = {
+                referenceValidation: {
+                  percentage: referenceValidationPercentage,
+                  valid: validCount,
+                  invalid: invalidCount,
+                  missing: missingCount,
+                  total: totalReferences,
+                },
+                contentCheck: {
+                  percentage: contentCheckPercentage,
+                  ...contentValidationResults.figure_validation,
+                },
+                overallStatus: 'PENDING',
+                reason: '',
+              }
+
+              // Determine overall status based on 75% threshold
+              if (referenceValidationPercentage >= 75 && contentCheckPercentage >= 75) {
+                validationAnalysis.overallStatus = 'VALID'
+                validationAnalysis.reason = `Both reference validation (${referenceValidationPercentage.toFixed(1)}%) and content check (${contentCheckPercentage.toFixed(1)}%) meet the 75% threshold.`
+              } else {
+                validationAnalysis.overallStatus = 'INVALID'
+                const reasons = []
+                if (referenceValidationPercentage < 75) {
+                  reasons.push(`Reference validation is ${referenceValidationPercentage.toFixed(1)}% (below 75% threshold)`)
+                }
+                if (contentCheckPercentage < 75) {
+                  reasons.push(`Content check is ${contentCheckPercentage.toFixed(1)}% (below 75% threshold)`)
+                }
+                validationAnalysis.reason = reasons.join('; ')
+              }
+            }
+          } catch (error) {
+            console.error(`Error running content check for ${file.name}:`, error)
+            validationAnalysis = {
+              referenceValidation: {
+                percentage: referenceValidationPercentage,
+                valid: validCount,
+                invalid: invalidCount,
+                missing: missingCount,
+                total: totalReferences,
+              },
+              contentCheck: {
+                percentage: 0,
+                error: 'Content check failed',
+              },
+              overallStatus: 'PENDING',
+              reason: 'Content check could not be completed',
+            }
+          }
         }
       }
     } catch (error) {
@@ -353,12 +468,79 @@ async function processFile(
       // Don't fail the upload if reference extraction/validation fails
     }
 
+    // Automatically extract diagrams/figures
+    let diagramsExtracted = false
+    try {
+      if (paper.pdfPath && fs.existsSync(path.join(process.cwd(), 'uploads', paper.pdfPath))) {
+        const pdfPath = path.join(process.cwd(), 'uploads', paper.pdfPath)
+        const figuresResult = await extractFiguresFromPDF(pdfPath)
+        
+        if (figuresResult.figures && figuresResult.figures.length > 0) {
+          // Delete existing diagrams to avoid duplicates
+          await prisma.diagram.deleteMany({
+            where: { paperId: paper.id },
+          })
+
+          // Save diagrams to database
+          for (const figure of figuresResult.figures) {
+            await prisma.diagram.create({
+              data: {
+                paperId: paper.id,
+                pageNumber: figure.page || 1,
+                imagePath: figure.path || '',
+                perceptualHash: figure.hash || '',
+                width: figure.width || 0,
+                height: figure.height || 0,
+                type: figure.type || 'unknown',
+              },
+            })
+          }
+          diagramsExtracted = true
+        }
+      }
+    } catch (error) {
+      console.error(`Error extracting diagrams for ${file.name}:`, error)
+      // Don't fail the upload if diagram extraction fails
+    }
+
+    // Update paper with validation results and status
+    if (validationAnalysis) {
+      const finalStatus = validationAnalysis.overallStatus === 'VALID' ? 'VALIDATED' : 
+                         (needsReview ? 'NEEDS_REVIEW' : 'PENDING')
+      
+      await prisma.paper.update({
+        where: { id: paper.id },
+        data: {
+          status: finalStatus,
+          metadata: {
+            ...(paper.metadata as any || {}),
+            validationAnalysis,
+            contentValidation: validationAnalysis.contentCheck,
+          },
+        },
+      })
+    }
+
+    // Fetch updated paper with validation results
+    const updatedPaper = await prisma.paper.findUnique({
+      where: { id: paper.id },
+      include: {
+        authors: {
+          include: {
+            author: true,
+          },
+        },
+      },
+    })
+
     return {
       success: true,
-      paper,
+      paper: updatedPaper,
       filename: file.name,
       referencesExtracted,
       referencesValidated,
+      diagramsExtracted,
+      validationAnalysis,
     }
   } catch (error: any) {
     console.error(`Error processing file ${file.name}:`, error)

@@ -1,0 +1,56 @@
+# Python service (deploy separately)
+python-service/
+scripts/
+*.py
+
+# Development files
+.env.local
+.env.development
+.env.test
+
+# Build artifacts
+.next/
+out/
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads (use external storage in production)
+uploads/
+public/diagrams/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+test_results/
+
+# Documentation
+*.md
+!README.md
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+

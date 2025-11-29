@@ -120,3 +120,19 @@ export async function extractFiguresFromPDF(pdfPath: string): Promise<FigureExtr
   }
 }
 
+export async function validateContent(
+  text: string,
+  references: any[]
+): Promise<any> {
+  try {
+    const response = await axios.post(`${PDF_SERVICE_URL}/validate-content`, {
+      text,
+      references
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error validating content:', error)
+    throw error
+  }
+}
+

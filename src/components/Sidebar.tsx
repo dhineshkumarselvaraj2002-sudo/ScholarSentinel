@@ -4,15 +4,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/src/lib/utils'
 import {
-  FileText,
-  Image,
-  Search,
   Shield,
   LayoutDashboard,
-  Bell,
-  Settings,
   Menu,
   X,
+  FileText,
+  Search,
+  Image,
+  CheckCircle2,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
@@ -26,19 +25,12 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/papers', label: 'Papers', icon: FileText },
-  { href: '/alerts', label: 'Alerts', icon: Bell },
-  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
-const referenceCheckItems: NavItem[] = [
+const checkModules: NavItem[] = [
   { href: '/reference-check', label: 'Reference Check', icon: Search },
-  { href: '/papers', label: 'All Papers', icon: FileText },
-]
-
-const diagramCheckItems: NavItem[] = [
-  { href: '/diagram-checker', label: 'Diagram Checker', icon: Image },
-  { href: '/forensics', label: 'Forensics Engine', icon: Shield },
+  { href: '/content-check', label: 'Content Check', icon: CheckCircle2 },
+  { href: '/diagram-checker', label: 'Diagram Check', icon: Image },
 ]
 
 export function Sidebar() {
@@ -141,12 +133,9 @@ export function Sidebar() {
           <nav className="flex-1 space-y-6 overflow-y-auto p-4">
             {/* Main Navigation */}
             <NavSection title="Main" items={mainNavItems} />
-
-            {/* Reference Check Module */}
-            <NavSection title="Reference Check" items={referenceCheckItems} />
-
-            {/* Diagram Check Module */}
-            <NavSection title="Diagram Check" items={diagramCheckItems} />
+            
+            {/* Check Modules */}
+            <NavSection title="Check Modules" items={checkModules} />
           </nav>
 
           {/* Footer */}

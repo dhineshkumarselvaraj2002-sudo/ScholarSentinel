@@ -1,0 +1,49 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "functions": {
+    "app/api/papers/upload/route.ts": {
+      "maxDuration": 300,
+      "memory": 2048
+    },
+    "app/api/papers/[id]/references/validate/route.ts": {
+      "maxDuration": 300,
+      "memory": 2048
+    },
+    "app/api/papers/[id]/content-check/route.ts": {
+      "maxDuration": 300,
+      "memory": 2048
+    },
+    "app/api/diagram/upload/route.ts": {
+      "maxDuration": 300,
+      "memory": 2048
+    },
+    "app/api/papers/[id]/diagrams/validate/route.ts": {
+      "maxDuration": 300,
+      "memory": 2048
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization, X-Gemini-API-Key"
+        }
+      ]
+    }
+  ]
+}
+

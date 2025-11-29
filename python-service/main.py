@@ -1479,6 +1479,45 @@ async def extract_figures(file: UploadFile = File(...)):
             except Exception as e:
                 logger.warning(f"Failed to delete temp file: {e}")
 
+from content_checker import ContentChecker
+from pydantic import BaseModel
+from typing import List
+
+class ContentValidationRequest(BaseModel):
+    text: str
+    references: List[Reference]
+
+@app.post("/validate-content")
+async def validate_content(request: ContentValidationRequest):
+    """
+    Validate references and figures against the text content.
+    """
+    results = []
+    
+    # 1. Validate References
+    for ref in request.references:
+        # Check if reference is cited
+        citation_check = ContentChecker.check_reference_citation(
+            request.text, 
+            ref.order, 
+            ref.normalized_authors or ref.raw_text
+        )
+        
+        # Add result to reference object (or return separate results)
+        # We'll return a list of results mapped by order
+        results.append({
+            'order': ref.order,
+            'content_check': citation_check
+        })
+        
+    # 2. Validate Figures
+    figure_check = ContentChecker.check_figure_callouts(request.text)
+    
+    return {
+        'reference_validation': results,
+        'figure_validation': figure_check
+    }
+
 if __name__ == "__main__":
     import uvicorn
     import sys
