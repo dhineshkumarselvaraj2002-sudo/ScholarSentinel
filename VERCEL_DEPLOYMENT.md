@@ -40,7 +40,31 @@ BING_VISUAL_SEARCH_ENDPOINT=your_bing_endpoint
 
 ### 3. Database Setup
 
-#### Option A: Vercel Postgres (Recommended)
+#### Option A: Neon Database (Recommended for Vercel)
+1. In Vercel dashboard, go to **Storage → Create Database → Neon**
+2. Or create at [neon.tech](https://neon.tech)
+3. Copy the **pooled connection string** (for production) to `DATABASE_URL`
+4. Optionally set `DIRECT_URL` for migrations (non-pooled connection)
+5. Enable required extensions:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS pg_trgm;
+   ```
+6. Run migrations:
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+**Neon Connection String Format:**
+```
+postgresql://user:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
+```
+
+For pooled connections (recommended):
+```
+postgresql://user:password@ep-xxx-pooler.region.aws.neon.tech/dbname?sslmode=require
+```
+
+#### Option B: Vercel Postgres
 1. In Vercel dashboard, go to **Storage → Create Database → Postgres**
 2. Copy the connection string to `DATABASE_URL`
 3. Run migrations:
@@ -48,7 +72,7 @@ BING_VISUAL_SEARCH_ENDPOINT=your_bing_endpoint
    npx prisma migrate deploy
    ```
 
-#### Option B: External Database (Supabase, Neon, etc.)
+#### Option C: Other External Databases (Supabase, etc.)
 1. Create database instance
 2. Get connection string
 3. Add to `DATABASE_URL` environment variable
