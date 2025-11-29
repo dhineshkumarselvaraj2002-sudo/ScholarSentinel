@@ -81,7 +81,7 @@ export function PaperList() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {papers.map((paper: Paper) => (
-            <PaperCard key={paper.id} paper={paper} />
+            <PaperCard key={paper.id} paper={paper as any} />
           ))}
         </div>
       )}

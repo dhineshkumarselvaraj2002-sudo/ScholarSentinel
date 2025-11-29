@@ -15,7 +15,16 @@ async function processFile(
   file: File,
   geminiApiKey: string | undefined,
   uploadsDir: string
-): Promise<{ success: boolean; paper?: any; error?: string; filename: string }> {
+): Promise<{ 
+  success: boolean; 
+  paper?: any; 
+  error?: string; 
+  filename: string;
+  referencesExtracted?: boolean;
+  referencesValidated?: boolean;
+  diagramsExtracted?: boolean;
+  validationAnalysis?: any;
+}> {
   try {
     // Validate file type
     if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
@@ -76,9 +85,9 @@ async function processFile(
         const authorString = textResult.metadata.author
         extractedAuthors = authorString
           .split(/[,;]/)
-          .map(a => a.trim())
+          .map((a: string) => a.trim())
           .filter(Boolean)
-          .map(name => ({ name, display_name: name }))
+          .map((name: string) => ({ name, display_name: name }))
       }
 
       // Extract year - use robust extraction if available
@@ -243,17 +252,17 @@ async function processFile(
               data: {
                 paperId: paper.id,
                 order: ref.order || 0,
-                rawText: ref.raw_text || ref.rawText || '',
-                normalizedTitle: ref.normalized_title || ref.normalizedTitle || null,
-                normalizedAuthors: ref.normalized_authors || ref.normalizedAuthors || null,
-                normalizedYear: ref.normalized_year || ref.normalizedYear || null,
-                normalizedDoi: ref.normalized_doi || ref.normalizedDoi || null,
-                normalizedVenue: ref.normalized_venue || ref.normalizedVenue || null,
+                rawText: ref.raw_text || '',
+                normalizedTitle: ref.normalized_title || null,
+                normalizedAuthors: ref.normalized_authors || null,
+                normalizedYear: ref.normalized_year || null,
+                normalizedDoi: ref.normalized_doi || null,
+                normalizedVenue: ref.normalized_venue || null,
                 status: 'PENDING',
                 // Store AI extraction data in verificationData for future use
                 verificationData: aiExtraction ? {
                   aiExtraction: aiExtraction,
-                } : null,
+                } : undefined,
               },
             })
           }
@@ -482,16 +491,17 @@ async function processFile(
           })
 
           // Save diagrams to database
-          for (const figure of figuresResult.figures) {
+          for (let idx = 0; idx < figuresResult.figures.length; idx++) {
+            const figure = figuresResult.figures[idx]
             await prisma.diagram.create({
               data: {
                 paperId: paper.id,
-                pageNumber: figure.page || 1,
-                imagePath: figure.path || '',
-                perceptualHash: figure.hash || '',
+                order: idx + 1,
+                pageNumber: figure.page_number || 1,
+                imagePath: figure.image_path || '',
+                perceptualHash: figure.perceptual_hash || '',
                 width: figure.width || 0,
                 height: figure.height || 0,
-                type: figure.type || 'unknown',
               },
             })
           }

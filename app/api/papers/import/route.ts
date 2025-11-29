@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       imported: importedPapers.length,
-      skipped: skippedPapers.length,
+      skippedCount: skippedPapers.length,
       papers: importedPapers,
       skipped: skippedPapers,
     })

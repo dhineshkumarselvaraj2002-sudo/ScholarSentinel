@@ -12,9 +12,7 @@ export default function DashboardPage() {
   const statsQuery = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const [papersRes, alertsRes] = await Promise.all([
-        axios.get('/api/papers?limit=1000'),
-      ])
+      const papersRes = await axios.get('/api/papers?limit=1000')
       
       const papers = papersRes.data.papers || []
       
@@ -102,7 +100,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-4">
               {stats.validPapers.slice(0, 10).map((paper: any) => {
-                const validation = paper.metadata?.validationAnalysis
+                const validation = paper.metadata?.validationAnalysis as any as any
                 const refValidation = validation?.referenceValidation
                 const contentCheck = validation?.contentCheck
                 
@@ -205,8 +203,7 @@ export default function DashboardPage() {
                           </p>
                         </div>
                       )}
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )
               })}
@@ -235,7 +232,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-4">
               {stats.invalidPapers.slice(0, 10).map((paper: any) => {
-                const validation = paper.metadata?.validationAnalysis
+                const validation = paper.metadata?.validationAnalysis as any
                 const refValidation = validation?.referenceValidation
                 const contentCheck = validation?.contentCheck
                 

@@ -39,6 +39,12 @@ interface ReferenceDetails {
     data: any
     matchScore?: number
     titleSimilarity?: number
+    contentCheck?: {
+      valid: boolean
+      found: boolean
+      citationType?: string
+      reason?: string
+    } | null
   } | null
 }
 

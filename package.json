@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "turbo run build",
+    "build": "next build",
     "compile": "tsc --noEmit",
     "start": "next start",
-    "lint": "turbo run lint",
+    "lint": "next lint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
